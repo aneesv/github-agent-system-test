@@ -17,3 +17,34 @@ const { title } = Astro.props;
     <slot />
   </body>
 </html>
+
+<style is:global>
+  :root {
+    --color-bg: #ffffff;
+    --color-text: #1a1a1a;
+    --color-accent: #3b82f6;
+    --color-header-bg: #f8f9fa;
+    --color-border: #e2e8f0;
+  }
+
+  [data-theme="dark"] {
+    --color-bg: #0f172a;
+    --color-text: #e2e8f0;
+    --color-accent: #60a5fa;
+    --color-header-bg: #1e293b;
+    --color-border: #334155;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    margin: 0;
+    padding: 0;
+    font-family: system-ui, sans-serif;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  a {
+    color: var(--color-accent);
+  }
+</style>
