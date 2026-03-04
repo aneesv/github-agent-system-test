@@ -8,6 +8,8 @@ jobs:
   review:
     name: Review PR
     timeout-minutes: 15
+    # Only review agent-created PRs (those with PR_META block) — skip Dependabot, release-please, etc.
+    if: contains(github.event.pull_request.body, '<!-- PR_META')
     runs-on: ubuntu-latest
     permissions:
       contents: read
