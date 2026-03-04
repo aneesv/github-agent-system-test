@@ -50,9 +50,9 @@ gh pr review <pr_number> --request-changes --body "..."
 gh pr review <pr_number> --approve --body "..."
 ```
 - Summarize what was reviewed and why it passes
-- Merge the PR:
+- Merge the PR (use --merge to preserve conventional commits for release-please):
   ```
-  gh pr merge <pr_number> --squash
+  gh pr merge <pr_number> --merge
   ```
 - Comment on the linked sub-issue: "PR #<N> approved and merged."
 - Close the sub-issue if not auto-closed by the PR merge

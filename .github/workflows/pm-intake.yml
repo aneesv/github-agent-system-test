@@ -15,6 +15,10 @@ jobs:
       !contains(github.event.issue.labels.*.name, 'flow:planning') &&
       !contains(github.event.issue.labels.*.name, 'flow:pm-review') &&
       !contains(github.event.issue.labels.*.name, 'flow:planned') &&
+      !contains(github.event.issue.labels.*.name, 'flow:implementing') &&
+      !contains(github.event.issue.labels.*.name, 'flow:ready-release') &&
+      !contains(github.event.issue.labels.*.name, 'flow:blocked') &&
+      !contains(github.event.issue.labels.*.name, 'flow:failed') &&
       !contains(github.event.issue.labels.*.name, 'flow:released') &&
       !contains(github.event.issue.labels.*.name, 'agent/research') &&
       !contains(github.event.issue.labels.*.name, 'agent/plan') &&

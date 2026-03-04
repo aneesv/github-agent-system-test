@@ -35,6 +35,7 @@ flow_id: <uuid>
 status: <current-stage>
 created: <timestamp>
 phases: <count or pending>
+plan_branch: plan/issue-<number>
 sub_issues: [#N, #N, ...]
 -->
 ```
@@ -95,6 +96,7 @@ parent_issue: #<number>
 | `agent/*` on sub-issues | PM agent (creates), agents (self-remove on completion) |
 | `lock:*` | Agent that acquires it (must release on completion) |
 | `needs:human` | Any agent (add), human only (remove) |
+| `needs:revision` | PM agent (add to plan sub-issue), planner agent (remove after revising) |
 | `type/*`, `priority/*` | PM agent |
 | `phase/*` | PM agent |
 | `risk:*` | PM agent |

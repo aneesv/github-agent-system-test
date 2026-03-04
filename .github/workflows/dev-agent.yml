@@ -1,8 +1,9 @@
 name: Dev Agent
 
 on:
-  issues:
-    types: [labeled]
+  # Only triggered by explicit dispatch from scheduler.yml.
+  # The scheduler also adds agent/dev label (for the scheduler's closed-trigger detection),
+  # but we do NOT use the label event to start dev agent — that would cause a double-fire.
   workflow_dispatch:
     inputs:
       issue_number:
@@ -14,9 +15,7 @@ jobs:
   implement:
     name: Implement phase
     timeout-minutes: 30
-    if: >-
-      (github.event_name == 'issues' && github.event.label.name == 'agent/dev') ||
-      github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -38,14 +37,7 @@ jobs:
       - name: Resolve sub-issue number
         id: resolve
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "issue_number=${{ github.event.inputs.issue_number }}" >> $GITHUB_OUTPUT
-            echo "issue_title=" >> $GITHUB_OUTPUT
-            echo "issue_body=" >> $GITHUB_OUTPUT
-          else
-            echo "issue_number=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
-            echo "issue_title=${{ github.event.issue.title }}" >> $GITHUB_OUTPUT
-          fi
+          echo "issue_number=${{ github.event.inputs.issue_number }}" >> $GITHUB_OUTPUT
 
       - name: Prepare system prompt
         run: cp .github/prompts/dev.md /tmp/system-prompt.txt

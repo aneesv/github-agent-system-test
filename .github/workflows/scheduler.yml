@@ -4,6 +4,12 @@ on:
   issues:
     types: [labeled, closed]
 
+# Serialize all scheduler runs globally to prevent double-activation of the same phase
+# when multiple sub-issues close nearly simultaneously.
+concurrency:
+  group: scheduler-${{ github.repository }}
+  cancel-in-progress: false
+
 jobs:
   schedule:
     name: Evaluate and activate runnable sub-issues
@@ -62,7 +68,7 @@ jobs:
           if [ "$TOTAL" -eq 0 ]; then
             echo "Native API returned no results, falling back to text search..."
             SUB_ISSUES=$(gh issue list --state all --limit 100 --json number,state,labels,body \
-              -q "[.[] | select(.body | contains(\"parent_issue: #${PARENT_NUM}\")) | select(.body | contains(\"SUB_ISSUE_META\")) | {number: .number, state: (.state | ascii_downcase), labels: [.labels[].name], body: .body}]")
+              -q "[.[] | select(.body | test(\"parent_issue: #${PARENT_NUM}([^0-9]|$)\")) | select(.body | contains(\"SUB_ISSUE_META\")) | {number: .number, state: (.state | ascii_downcase), labels: [.labels[].name], body: .body}]")
             TOTAL=$(echo "$SUB_ISSUES" | jq 'length')
             OPEN=$(echo "$SUB_ISSUES" | jq '[.[] | select(.state == "open")] | length')
             CLOSED=$(echo "$SUB_ISSUES" | jq '[.[] | select(.state == "closed")] | length')

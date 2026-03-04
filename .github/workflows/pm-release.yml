@@ -42,10 +42,12 @@ jobs:
 
             Follow the Release instructions in your system prompt:
             1. Verify ALL phase sub-issues are closed
-            2. Verify ALL linked PRs are merged (not just closed)
+            2. Verify ALL linked PRs are merged into the plan branch (not just closed)
             3. Post completion summary on parent issue
-            4. Check for release-please PR
-            5. Add needs:human label — human will merge the release PR
+            4. Check for existing plan→main PR to avoid duplicates (gh pr list --base main --head plan/issue-<N>)
+            5. Create plan→main PR if it doesn't exist yet
+            6. Comment "Plan PR ready: #<N>. Awaiting human merge." on parent
+            7. Add needs:human label to parent issue
           claude_args: |
             --append-system-prompt-file /tmp/system-prompt.txt
             --verbose

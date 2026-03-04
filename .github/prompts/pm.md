@@ -62,8 +62,12 @@ Read CLAUDE.md at the repo root for shared conventions that all agents follow.
 
 4. If changes needed:
    - Comment on the PLAN sub-issue with specific, actionable feedback
+   - Ensure the `needs:revision` label exists (create it if not):
+     ```
+     gh label create "needs:revision" --color "0075ca" --description "PM requested plan revision" 2>/dev/null || true
+     ```
+   - Add `needs:revision` label to the PLAN sub-issue (this triggers the planner to revise)
    - Remove `flow:pm-review` from parent, add `flow:planning`
-   - The planner agent will re-trigger and revise
 
 5. If approved:
    - Comment on plan sub-issue: "Plan approved."
@@ -103,7 +107,12 @@ Read CLAUDE.md at the repo root for shared conventions that all agents follow.
 3. If any incomplete: comment with status, remove `flow:ready-release`, and stop.
 4. Post a completion summary on parent issue listing all phases and PRs.
 5. Get the plan branch name from the ORCHESTRATION_STATE comment (`plan_branch` field).
-6. Create the plan → main PR:
+6. Check if a plan→main PR already exists to avoid duplicates:
+   ```
+   gh pr list --base main --head plan/issue-<parent_number> --json number -q '.[0].number'
+   ```
+   If a PR already exists, skip creation and use that PR number. Comment and add `needs:human` if not already done.
+7. Create the plan → main PR (only if none exists):
    ```
    gh pr create \
      --base main \
@@ -124,5 +133,5 @@ Read CLAUDE.md at the repo root for shared conventions that all agents follow.
    <list each phase sub-issue and its PR>
    "
    ```
-7. Comment on parent: "Plan PR ready: #<pr_number>. Awaiting human merge."
-8. Add `needs:human` to parent issue.
+8. Comment on parent: "Plan PR ready: #<pr_number>. Awaiting human merge."
+9. Add `needs:human` to parent issue.

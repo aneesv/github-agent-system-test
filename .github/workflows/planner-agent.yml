@@ -3,8 +3,11 @@ name: Planner Agent
 on:
   issues:
     types: [labeled]
-  issue_comment:
-    types: [created]
+
+# Serialize planner runs to avoid duplicate plan posts
+concurrency:
+  group: planner-${{ github.event.issue.number }}
+  cancel-in-progress: false
 
 jobs:
   plan-create:
@@ -61,13 +64,14 @@ jobs:
   plan-revise:
     name: Revise plan based on PM feedback
     timeout-minutes: 15
+    # Triggered when PM adds 'needs:revision' to the plan sub-issue after requesting changes.
+    # PM is a bot, so issue_comment sender.type=='User' never fires for PM feedback.
+    # PM must add needs:revision to the PLAN sub-issue (not the parent) as the revision signal.
     if: >-
-      github.event_name == 'issue_comment' &&
-      github.event.sender.type == 'User' &&
-      contains(github.event.issue.labels.*.name, 'agent/plan') &&
-      !contains(github.event.comment.body, '<!-- PLAN_OUTPUT') &&
-      !contains(github.event.comment.body, 'Claude Code is working') &&
-      !contains(github.event.comment.body, 'Claude finished')
+      github.event_name == 'issues' &&
+      github.event.action == 'labeled' &&
+      github.event.label.name == 'needs:revision' &&
+      contains(github.event.issue.labels.*.name, 'agent/plan')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -92,18 +96,25 @@ jobs:
           additional_permissions: |
             actions: read
           prompt: |
-            You are the Planner Agent revising a plan based on PM feedback.
+            You are the Planner Agent revising a plan after PM requested changes.
 
             PLAN SUB-ISSUE: #${{ github.event.issue.number }}
-            PM FEEDBACK:
-            ${{ github.event.comment.body }}
+            TITLE: ${{ github.event.issue.title }}
 
-            Read the existing plan on this issue's comments, apply the PM's feedback,
-            and post an updated PLAN_OUTPUT comment. Follow the revision instructions
-            in your system prompt.
+            The PM has added 'needs:revision' to this plan sub-issue after reviewing
+            and requesting changes.
+
+            Follow your system prompt revision instructions:
+            1. Fetch this plan sub-issue's comments to find the existing PLAN_OUTPUT block
+            2. Find the PM's feedback comment (most recent bot comment after the PLAN_OUTPUT)
+            3. Revise the plan incorporating all PM feedback
+            4. Post an updated PLAN_OUTPUT comment (status: revised) on this sub-issue
+            5. Remove 'needs:revision' label from this sub-issue
+            6. Read the SUB_ISSUE_META to find parent_issue, comment on parent: "Plan revised. See #<this_issue>."
+            7. Add flow:pm-review to parent (remove flow:planning)
           claude_args: |
             --append-system-prompt-file /tmp/system-prompt.txt
             --verbose
             --model claude-sonnet-4-6
             --allowedTools "Read,Bash(grep:*),Bash(cat:*),Bash(gh issue:*),Bash(gh label:*)"
-            --max-turns 15
+            --max-turns 20
