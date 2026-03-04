@@ -11,9 +11,72 @@ on:
     types: [submitted]
 
 jobs:
+  # Handle agent commands: /agent-run, /agent-status, /agent-retry, /agent-replan, /agent-block, /agent-unblock
+  agent-commands:
+    if: >-
+      github.event_name == 'issue_comment' &&
+      (
+        contains(github.event.comment.body, '/agent-run') ||
+        contains(github.event.comment.body, '/agent-status') ||
+        contains(github.event.comment.body, '/agent-retry') ||
+        contains(github.event.comment.body, '/agent-replan') ||
+        contains(github.event.comment.body, '/agent-block') ||
+        contains(github.event.comment.body, '/agent-unblock')
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code — Agent Commands
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are Claude handling agent system commands on issue #${{ github.event.issue.number }}.
+
+            COMMAND COMMENT:
+            ${{ github.event.comment.body }}
+
+            Handle the following commands:
+
+            /agent-run — Add the `agent:run` label to this issue to trigger the agent system.
+
+            /agent-status — Read the ORCHESTRATION_STATE comment on this issue and post a
+            human-readable status summary including: current flow state, sub-issues and their
+            status, any blockers.
+
+            /agent-retry <stage|#issue> — If a stage or sub-issue failed:
+              - Remove `flow:failed` and `needs:human` labels
+              - Re-add the appropriate trigger label to restart that stage
+              - If a sub-issue number is given, re-add `agent/dev` (or appropriate agent label)
+
+            /agent-replan — Remove current plan and phase sub-issues, reset to `flow:research`
+            to restart the planning process from scratch.
+
+            /agent-block <reason> — Add `flow:blocked` and `needs:human` labels,
+            post comment with the block reason.
+
+            /agent-unblock — Remove `flow:blocked` and `needs:human` labels,
+            resume from the last active flow state.
+
+            Execute the appropriate command based on the comment.
+          claude_args: >-
+            --allowedTools "Bash(gh issue:*),Bash(gh label:*),Bash(gh pr:*),Read"
+            --max-turns 15
+
+  # Handle @claude mentions for ad-hoc requests
   claude:
-    if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+    if: >-
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude') && !contains(github.event.comment.body, '/agent-')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
@@ -23,7 +86,7 @@ jobs:
       pull-requests: read
       issues: read
       id-token: write
-      actions: read # Required for Claude to read CI results on PRs
+      actions: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -35,16 +98,5 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-
-          # This is an optional setting that allows Claude to read CI results on PRs
           additional_permissions: |
             actions: read
-
-          # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
-          # prompt: 'Update the pull request description to include a summary of changes.'
-
-          # Optional: Add claude_args to customize behavior and configuration
-          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
-          # or https://code.claude.com/docs/en/cli-reference for available options
-          # claude_args: '--allowed-tools Bash(gh pr:*)'
-

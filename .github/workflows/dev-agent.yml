@@ -1,0 +1,54 @@
+name: Dev Agent
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  implement:
+    name: Implement phase
+    if: >-
+      github.event.label.name == 'agent/dev'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read Dev prompt
+        id: prompt
+        run: |
+          SYSTEM_PROMPT=$(cat .github/prompts/dev.md)
+          echo "system_prompt<<PROMPT_EOF" >> "$GITHUB_OUTPUT"
+          echo "$SYSTEM_PROMPT" >> "$GITHUB_OUTPUT"
+          echo "PROMPT_EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Run Dev Agent
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are the Dev Agent implementing a phase.
+
+            SUB-ISSUE: #${{ github.event.issue.number }}
+            TITLE: ${{ github.event.issue.title }}
+            BODY:
+            ${{ github.event.issue.body }}
+
+            Follow your system prompt instructions:
+            1. Parse SUB_ISSUE_META to find phase number, parent issue, scope
+            2. Read the plan from parent issue thread
+            3. Create a branch, implement the phase
+            4. Commit with conventional commits
+            5. Create a PR linked to this sub-issue
+          claude_args: >-
+            --system-prompt "${{ steps.prompt.outputs.system_prompt }}"
+            --allowedTools "Read,Write,Edit,Bash(git:*),Bash(gh pr:*),Bash(gh issue:*),Bash(gh label:*),Bash(npm:*),Bash(npx:*),Bash(find:*),Bash(ls:*),Bash(grep:*),Bash(cat:*),Bash(mkdir:*)"
+            --max-turns 50

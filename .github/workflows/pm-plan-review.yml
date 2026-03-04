@@ -1,0 +1,57 @@
+name: PM Agent — Plan Review
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  pm-plan-review:
+    name: Review implementation plan
+    if: >-
+      github.event.label.name == 'flow:pm-review'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Read PM prompt
+        id: prompt
+        run: |
+          SYSTEM_PROMPT=$(cat .github/prompts/pm.md)
+          echo "system_prompt<<PROMPT_EOF" >> "$GITHUB_OUTPUT"
+          echo "$SYSTEM_PROMPT" >> "$GITHUB_OUTPUT"
+          echo "PROMPT_EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Run PM Agent — Plan Review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are the PM Agent in PLAN REVIEW mode.
+
+            PARENT ISSUE: #${{ github.event.issue.number }}
+            TITLE: ${{ github.event.issue.title }}
+
+            Follow the Plan Review instructions in your system prompt:
+            1. Find the plan sub-issue from parent issue comments
+            2. Read the PLAN_OUTPUT block
+            3. Evaluate completeness, feasibility, dependency graph
+            4. Either request changes (comment on plan sub-issue) or approve
+            5. If approved: create phase sub-issues, update orchestration state,
+               add flow:planned and flow:phase-1 to trigger the scheduler
+
+            IMPORTANT: When creating phase sub-issues, include SUB_ISSUE_META
+            with proper depends_on values from the dependency graph.
+            Do NOT add agent/dev labels — the scheduler handles that.
+          claude_args: >-
+            --system-prompt "${{ steps.prompt.outputs.system_prompt }}"
+            --allowedTools "Bash(gh issue:*),Bash(gh label:*),Read"
+            --max-turns 25

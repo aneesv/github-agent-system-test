@@ -1,0 +1,64 @@
+name: PM Agent — Intake
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  pm-triage:
+    name: Triage new issue
+    if: >-
+      github.event.label.name == 'agent:run' &&
+      !contains(github.event.issue.labels.*.name, 'flow:triage') &&
+      !contains(github.event.issue.labels.*.name, 'flow:research') &&
+      !contains(github.event.issue.labels.*.name, 'flow:planning') &&
+      !contains(github.event.issue.labels.*.name, 'flow:pm-review') &&
+      !contains(github.event.issue.labels.*.name, 'flow:planned') &&
+      !contains(github.event.issue.labels.*.name, 'flow:released') &&
+      !contains(github.event.issue.labels.*.name, 'agent/research') &&
+      !contains(github.event.issue.labels.*.name, 'agent/plan') &&
+      !contains(github.event.issue.labels.*.name, 'agent/dev')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Read PM prompt
+        id: prompt
+        run: |
+          SYSTEM_PROMPT=$(cat .github/prompts/pm.md)
+          echo "system_prompt<<PROMPT_EOF" >> "$GITHUB_OUTPUT"
+          echo "$SYSTEM_PROMPT" >> "$GITHUB_OUTPUT"
+          echo "PROMPT_EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Run PM Agent — Triage
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are the PM Agent in TRIAGE mode.
+
+            A new issue has been created and labeled with `agent:run`.
+
+            ISSUE NUMBER: #${{ github.event.issue.number }}
+            TITLE: ${{ github.event.issue.title }}
+            BODY:
+            ${{ github.event.issue.body }}
+
+            Follow the Triage instructions in your system prompt.
+            Generate a flow_id, classify the issue, create a research sub-issue,
+            and manage the label transitions on the parent issue.
+
+            IMPORTANT: Add `lock:intake` before starting and remove it when done.
+          claude_args: >-
+            --system-prompt "${{ steps.prompt.outputs.system_prompt }}"
+            --allowedTools "Bash(gh issue:*),Bash(gh label:*),Bash(uuidgen),Bash(date:*),Read"
+            --max-turns 25

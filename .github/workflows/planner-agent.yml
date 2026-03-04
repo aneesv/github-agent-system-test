@@ -1,0 +1,102 @@
+name: Planner Agent
+
+on:
+  issues:
+    types: [labeled]
+  issue_comment:
+    types: [created]
+
+jobs:
+  plan-create:
+    name: Create implementation plan
+    if: >-
+      github.event_name == 'issues' &&
+      github.event.label.name == 'agent/plan'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read Planner prompt
+        id: prompt
+        run: |
+          SYSTEM_PROMPT=$(cat .github/prompts/planner.md)
+          echo "system_prompt<<PROMPT_EOF" >> "$GITHUB_OUTPUT"
+          echo "$SYSTEM_PROMPT" >> "$GITHUB_OUTPUT"
+          echo "PROMPT_EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Run Planner Agent
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are the Planner Agent creating an initial implementation plan.
+
+            PLAN SUB-ISSUE: #${{ github.event.issue.number }}
+            TITLE: ${{ github.event.issue.title }}
+            BODY:
+            ${{ github.event.issue.body }}
+
+            Follow your system prompt instructions:
+            1. Parse SUB_ISSUE_META to find parent and research issues
+            2. Read research findings
+            3. Create a detailed implementation plan with dependency graph
+            4. Post PLAN_OUTPUT comment on this sub-issue
+            5. Summarize on parent issue
+            6. Add flow:pm-review to parent (remove flow:planning)
+          claude_args: >-
+            --system-prompt "${{ steps.prompt.outputs.system_prompt }}"
+            --allowedTools "Read,Bash(grep:*),Bash(cat:*),Bash(gh issue:*),Bash(gh label:*)"
+            --max-turns 20
+
+  plan-revise:
+    name: Revise plan based on PM feedback
+    if: >-
+      github.event_name == 'issue_comment' &&
+      contains(github.event.issue.labels.*.name, 'agent/plan') &&
+      !contains(github.event.comment.body, '<!-- PLAN_OUTPUT')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read Planner prompt
+        id: prompt
+        run: |
+          SYSTEM_PROMPT=$(cat .github/prompts/planner.md)
+          echo "system_prompt<<PROMPT_EOF" >> "$GITHUB_OUTPUT"
+          echo "$SYSTEM_PROMPT" >> "$GITHUB_OUTPUT"
+          echo "PROMPT_EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Run Planner Agent — Revision
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are the Planner Agent revising a plan based on PM feedback.
+
+            PLAN SUB-ISSUE: #${{ github.event.issue.number }}
+            PM FEEDBACK:
+            ${{ github.event.comment.body }}
+
+            Read the existing plan on this issue's comments, apply the PM's feedback,
+            and post an updated PLAN_OUTPUT comment. Follow the revision instructions
+            in your system prompt.
+          claude_args: >-
+            --system-prompt "${{ steps.prompt.outputs.system_prompt }}"
+            --allowedTools "Read,Bash(grep:*),Bash(cat:*),Bash(gh issue:*),Bash(gh label:*)"
+            --max-turns 15

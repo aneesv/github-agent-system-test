@@ -1,0 +1,58 @@
+name: Research Agent
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  research:
+    name: Research codebase
+    if: >-
+      github.event.label.name == 'agent/research' &&
+      !contains(github.event.issue.labels.*.name, 'lock:research')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read Research prompt
+        id: prompt
+        run: |
+          SYSTEM_PROMPT=$(cat .github/prompts/research.md)
+          echo "system_prompt<<PROMPT_EOF" >> "$GITHUB_OUTPUT"
+          echo "$SYSTEM_PROMPT" >> "$GITHUB_OUTPUT"
+          echo "PROMPT_EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Run Research Agent
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are the Research Agent.
+
+            You have been assigned to research sub-issue #${{ github.event.issue.number }}.
+
+            SUB-ISSUE TITLE: ${{ github.event.issue.title }}
+            SUB-ISSUE BODY:
+            ${{ github.event.issue.body }}
+
+            Follow your system prompt instructions exactly:
+            1. Parse the SUB_ISSUE_META block to find the parent issue
+            2. Read the parent issue for full requirements
+            3. Research the codebase thoroughly
+            4. Post your RESEARCH_OUTPUT comment on this sub-issue
+            5. Comment on the parent issue
+            6. Create a planner sub-issue with agent/plan label
+            7. Update flow labels on parent issue
+            8. Close this research sub-issue
+          claude_args: >-
+            --system-prompt "${{ steps.prompt.outputs.system_prompt }}"
+            --allowedTools "Read,Bash(find:*),Bash(ls:*),Bash(grep:*),Bash(cat:*),Bash(gh issue:*),Bash(gh label:*)"
+            --max-turns 30
