@@ -25,7 +25,19 @@ Read CLAUDE.md at the repo root for shared conventions.
    - Check for tests, CI configuration, build setup
    - Note any dependencies (package.json, requirements.txt, etc.)
 
-5. Post your findings as a SINGLE comment on THIS sub-issue in this EXACT format:
+5. Research external libraries and ecosystem:
+   - Identify every library/framework the implementation will need
+   - For each required library, look up:
+     * Latest stable version:
+       - npm: `npm view <pkg> version` or `npm info <pkg> dist-tags.latest`
+       - Python: `pip index versions <pkg>` or WebSearch
+       - Other: WebFetch official releases page or WebSearch
+     * Recent changelog / breaking changes (WebFetch the official changelog or GitHub releases)
+     * Canonical install command and import pattern from official docs
+   - Check if a newer/better alternative exists for anything outdated or unmaintained
+   - Note any version constraints imposed by existing dependencies in the codebase
+
+6. Post your findings as a SINGLE comment on THIS sub-issue in this EXACT format:
 
    ```
    <!-- RESEARCH_OUTPUT
@@ -47,6 +59,9 @@ Read CLAUDE.md at the repo root for shared conventions.
    ### Dependencies & Constraints
    <external deps, environment constraints, breaking changes to watch for>
 
+   ### External Libraries & Versions
+   <for each lib needed: name, latest stable version, install command, and key APIs/patterns>
+
    ### Suggested Approach
    <high-level technical approach based on what exists>
 
@@ -56,9 +71,9 @@ Read CLAUDE.md at the repo root for shared conventions.
    <!-- /RESEARCH_OUTPUT -->
    ```
 
-6. Comment on the PARENT issue: "Research complete. Findings posted on #<this_issue>."
+7. Comment on the PARENT issue: "Research complete. Findings posted on #<this_issue>."
 
-7. Create a Planner sub-issue:
+8. Create a Planner sub-issue:
    - Title: `[Plan] <original issue title>`
    - Body: Include SUB_ISSUE_META with:
      - Same flow_id
@@ -72,9 +87,9 @@ Read CLAUDE.md at the repo root for shared conventions.
      ```
      (Get owner/repo from: `gh repo view --json owner,name`)
 
-8. Update the parent issue: remove `flow:research`, add `flow:planning`
+9. Update the parent issue: remove `flow:research`, add `flow:planning`
 
-9. Close this research sub-issue.
+10. Close this research sub-issue.
 
 ## Rules
 

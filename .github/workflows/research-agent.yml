@@ -47,14 +47,16 @@ jobs:
             1. Parse the SUB_ISSUE_META block to find the parent issue
             2. Read the parent issue for full requirements
             3. Research the codebase thoroughly
-            4. Post your RESEARCH_OUTPUT comment on this sub-issue
-            5. Comment on the parent issue
-            6. Create a planner sub-issue with agent/plan label
-            7. Update flow labels on parent issue
-            8. Close this research sub-issue
+            4. Research external libraries — use npm view, pip index, WebSearch, WebFetch
+               to find latest stable versions and canonical usage patterns
+            5. Post your RESEARCH_OUTPUT comment (include External Libraries & Versions section)
+            6. Comment on the parent issue
+            7. Create a planner sub-issue with agent/plan label
+            8. Update flow labels on parent issue
+            9. Close this research sub-issue
           claude_args: |
             --append-system-prompt-file /tmp/system-prompt.txt
             --verbose
             --model claude-sonnet-4-6
-            --allowedTools "Read,Bash(find:*),Bash(ls:*),Bash(grep:*),Bash(cat:*),Bash(gh issue:*),Bash(gh label:*),Bash(gh api:*),Bash(gh repo:*)"
+            --allowedTools "Read,WebFetch,WebSearch,Bash(find:*),Bash(ls:*),Bash(grep:*),Bash(cat:*),Bash(npm:*),Bash(pip:*),Bash(pip3:*),Bash(node:*),Bash(gh issue:*),Bash(gh label:*),Bash(gh api:*),Bash(gh repo:*)"
             --max-turns 30

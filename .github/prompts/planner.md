@@ -80,12 +80,15 @@ Read CLAUDE.md at the repo root for shared conventions.
 
 ## If PM Requests Changes
 
-When the PM comments on this sub-issue with feedback:
-1. Read the feedback carefully
-2. Revise the plan
+When triggered by `needs:revision` label (PM adds this after commenting feedback):
+1. Read the PM's feedback comment on this sub-issue (most recent bot comment)
+2. Revise the plan incorporating all feedback
 3. Post a NEW comment with an updated `<!-- PLAN_OUTPUT -->` block (status: revised)
 4. Do NOT edit the old comment — append a new one
-5. Comment on parent: "Plan revised. See #<this_issue>."
+5. Remove `needs:revision` label from this sub-issue
+6. Comment on parent: "Plan revised. See #<this_issue>."
+7. Update parent labels: add `flow:pm-review`, remove `flow:planning`
+   (this re-triggers the PM to review the revised plan)
 
 ## Plan Quality Rules
 

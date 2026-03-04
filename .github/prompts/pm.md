@@ -9,6 +9,7 @@ Read CLAUDE.md at the repo root for shared conventions that all agents follow.
    If missing, comment asking for the info, add `needs:human`, remove `agent:run`, and stop.
 
 2. Generate a unique flow_id (use: `uuidgen` or `date +%s`).
+   Add `flow:triage` to the parent issue immediately (acts as re-entry guard).
 
 3. Post the ORCHESTRATION_STATE comment on the parent issue:
    ```
