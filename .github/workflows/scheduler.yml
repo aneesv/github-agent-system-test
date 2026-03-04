@@ -87,7 +87,7 @@ jobs:
             ISSUE_NUM=$(echo "$issue" | jq -r '.number')
             ISSUE_BODY_TEXT=$(echo "$issue" | jq -r '.body')
             ISSUE_STATE=$(echo "$issue" | jq -r '.state')
-            HAS_DEV=$(echo "$issue" | jq -r '[.labels[].name] | any(. == "agent/dev")')
+            HAS_DEV=$(echo "$issue" | jq -r '[.labels[]] | any(. == "agent/dev")')
 
             [ "$ISSUE_STATE" != "open" ] && continue
             [ "$HAS_DEV" = "true" ] && { echo "#$ISSUE_NUM already has agent/dev, skipping"; continue; }
