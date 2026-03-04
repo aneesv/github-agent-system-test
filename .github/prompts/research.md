@@ -65,6 +65,12 @@ Read CLAUDE.md at the repo root for shared conventions.
      - parent_issue reference
      - Reference to this research issue
    - Labels: `agent/plan`
+   - After creating, attach it as a native sub-issue:
+     ```
+     gh api repos/{owner}/{repo}/issues/{parent_number}/sub_issues \
+       --method POST --field sub_issue_id={new_issue_number}
+     ```
+     (Get owner/repo from: `gh repo view --json owner,name`)
 
 8. Update the parent issue: remove `flow:research`, add `flow:planning`
 
