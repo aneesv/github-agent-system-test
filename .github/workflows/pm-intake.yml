@@ -61,5 +61,5 @@ jobs:
             --append-system-prompt-file /tmp/system-prompt.txt
             --verbose
             --model claude-sonnet-4-6
-            --allowedTools "Bash(gh issue:*),Bash(gh label:*),Bash(uuidgen),Bash(date:*),Read"
+            --allowedTools "Bash(gh issue:*),Bash(gh label:*),Bash(gh api:*),Bash(gh repo:*),Bash(uuidgen),Bash(date:*),Read"
             --max-turns 25

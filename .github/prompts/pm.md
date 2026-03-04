@@ -29,6 +29,12 @@ Read CLAUDE.md at the repo root for shared conventions that all agents follow.
    - Title: `[Research] <parent issue title>`
    - Body: Include SUB_ISSUE_META block with flow_id, parent reference, and the full issue context
    - Labels: `agent/research`
+   - After creating, attach it as a native sub-issue via the API:
+     ```
+     gh api repos/{owner}/{repo}/issues/{parent_number}/sub_issues \
+       --method POST --field sub_issue_id={new_issue_number}
+     ```
+     (Get owner/repo from: `gh repo view --json owner,name`)
 
 6. Update ORCHESTRATION_STATE: status → research, add sub-issue number
 
@@ -62,6 +68,11 @@ Read CLAUDE.md at the repo root for shared conventions that all agents follow.
      - Body: SUB_ISSUE_META with depends_on from the dependency graph
      - Labels: `phase/N`
      - Do NOT add `agent/dev` yet — the scheduler handles activation
+   - After creating each phase sub-issue, attach it as a native sub-issue:
+     ```
+     gh api repos/{owner}/{repo}/issues/{parent_number}/sub_issues \
+       --method POST --field sub_issue_id={phase_issue_number}
+     ```
    - Update ORCHESTRATION_STATE with the full sub-issue map
    - Remove `flow:pm-review`, add `flow:planned`
    - Add `flow:phase-1` to trigger the scheduler
