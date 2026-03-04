@@ -3,13 +3,20 @@ name: Dev Agent
 on:
   issues:
     types: [labeled]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Sub-issue number to implement'
+        required: true
+        type: string
 
 jobs:
   implement:
     name: Implement phase
     timeout-minutes: 30
     if: >-
-      github.event.label.name == 'agent/dev'
+      (github.event_name == 'issues' && github.event.label.name == 'agent/dev') ||
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -28,6 +35,18 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
 
+      - name: Resolve sub-issue number
+        id: resolve
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "issue_number=${{ github.event.inputs.issue_number }}" >> $GITHUB_OUTPUT
+            echo "issue_title=" >> $GITHUB_OUTPUT
+            echo "issue_body=" >> $GITHUB_OUTPUT
+          else
+            echo "issue_number=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
+            echo "issue_title=${{ github.event.issue.title }}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Prepare system prompt
         run: cp .github/prompts/dev.md /tmp/system-prompt.txt
 
@@ -42,17 +61,15 @@ jobs:
           prompt: |
             You are the Dev Agent implementing a phase.
 
-            SUB-ISSUE: #${{ github.event.issue.number }}
-            TITLE: ${{ github.event.issue.title }}
-            BODY:
-            ${{ github.event.issue.body }}
+            SUB-ISSUE: #${{ steps.resolve.outputs.issue_number }}
 
             Follow your system prompt instructions:
-            1. Parse SUB_ISSUE_META to find phase number, parent issue, scope
-            2. Read the plan from parent issue thread
-            3. Create a branch, implement the phase
-            4. Commit with conventional commits
-            5. Create a PR linked to this sub-issue
+            1. Read the sub-issue body via: gh issue view ${{ steps.resolve.outputs.issue_number }} --json body,title
+            2. Parse SUB_ISSUE_META to find phase number, parent issue, scope
+            3. Read the plan from parent issue thread
+            4. Create a branch, implement the phase
+            5. Commit with conventional commits
+            6. Create a PR linked to this sub-issue
 
             IMPORTANT: git is already configured. When pushing, use:
               git push origin <branch-name>

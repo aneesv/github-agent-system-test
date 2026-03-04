@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       issues: write
+      actions: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -119,6 +120,7 @@ jobs:
 
             echo "Activating sub-issue #$ISSUE_NUM"
             gh issue edit "$ISSUE_NUM" --add-label "agent/dev"
+            gh workflow run dev-agent.yml --ref main -f issue_number="$ISSUE_NUM"
             ACTIVATED_LIST="$ACTIVATED_LIST $ISSUE_NUM"
 
           done < <(echo "$SUB_ISSUES" | jq -c '.[]')
