@@ -54,6 +54,11 @@ Read CLAUDE.md at the repo root for shared conventions that all agents follow.
    - Phase boundaries: are phases independently deployable?
    - Dependency graph: is it valid? (no cycles, no missing refs)
    - Acceptance criteria: are they specific and testable?
+   - Phase granularity: are phases meaningfully sized? **Reject plans that over-split.**
+     A phase should represent substantial work. If the plan creates 3+ serial phases where
+     each phase only touches 1-2 files and none of them ships value alone, request the
+     planner consolidate into fewer, larger phases. Example: CSS + component + scripts for
+     a UI feature is 1 phase, not 3.
 
 4. If changes needed:
    - Comment on the PLAN sub-issue with specific, actionable feedback

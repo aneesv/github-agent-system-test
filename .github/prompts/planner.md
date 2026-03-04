@@ -91,8 +91,26 @@ When the PM comments on this sub-issue with feedback:
 
 - Each phase MUST be independently deployable where possible
 - Each phase MUST have specific, testable acceptance criteria
-- Phase count: typically 2-5. If only 1 phase is needed, still structure it as Phase 1
 - The dependency graph MUST be a valid DAG (no cycles)
 - Mark phases as `parallel-safe` or `serial` based on file overlap and logical dependencies
 - If research findings are incomplete, note gaps explicitly but still produce a plan
 - NEVER start implementing — your output is documentation only
+
+## Phase Sizing — CRITICAL
+
+**Default to 1-2 phases.** Only go to 3+ when the feature is genuinely large or has independent parallel workstreams.
+
+**A phase must represent substantial, meaningful work** — not "add one file" or "add one component". If two pieces of work are always deployed together and neither is useful without the other, they belong in the **same phase**.
+
+**Only split into separate phases when:**
+- A later phase depends on runtime artifacts from an earlier one (e.g., DB migration must run before writing queries against it)
+- Two workstreams are fully independent and could be done in parallel by separate dev agents (e.g., backend API + frontend UI with no shared files)
+- An earlier phase produces a meaningful, shippable checkpoint on its own
+
+**Anti-patterns — do NOT do these:**
+- Splitting by layer (CSS in phase 1 → HTML in phase 2 → JS in phase 3 — this is all one thing, do it in one phase)
+- Creating a phase that only touches 1-2 trivial files
+- Splitting work that will all be coded in one sitting anyway
+- Making phases serial just because they touch the same file
+
+**Example:** A dark mode toggle (CSS vars + component + toggle scripts) is **1 phase** — all of it ships together and none of it works without the others.
