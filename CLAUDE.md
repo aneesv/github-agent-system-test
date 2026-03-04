@@ -5,12 +5,12 @@ All agents MUST read and follow these guidelines.
 
 ## Architecture
 
-Six specialized agents, each with a single responsibility:
+Seven specialized agents, each with a single responsibility:
 
 | Agent | Role | Workflow |
 |-------|------|----------|
 | PM | Orchestration, triage, plan review, release | pm-intake.yml, pm-plan-review.yml, pm-release.yml |
-| Research | Codebase exploration, findings documentation | research-agent.yml |
+| Research | Codebase exploration, web research, library version discovery | research-agent.yml |
 | Planner | Implementation plan + dependency graph | planner-agent.yml |
 | Scheduler | Dependency evaluation, phase activation | scheduler.yml (shell, not Claude) |
 | Dev | Code implementation, one phase at a time | dev-agent.yml |
@@ -76,13 +76,22 @@ phase_count: <N>
 <!-- /PLAN_OUTPUT -->
 ```
 
-### PR_META (on agent-created PR body)
+### PR_META (on agent-created phase PR body)
 ```
 <!-- PR_META
 flow_id: <uuid>
 phase: <N>
 sub_issue: #<number>
 parent_issue: #<number>
+-->
+```
+
+### PLAN_PR_META (on plan→main PR body, created by PM release)
+```
+<!-- PLAN_PR_META
+flow_id: <uuid>
+parent_issue: #<number>
+phase_prs: [#<pr1>, #<pr2>, ...]
 -->
 ```
 
