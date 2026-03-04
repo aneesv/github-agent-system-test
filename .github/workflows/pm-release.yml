@@ -7,6 +7,7 @@ on:
 jobs:
   pm-release:
     name: Orchestrate release
+    timeout-minutes: 10
     if: >-
       github.event.label.name == 'flow:ready-release'
     runs-on: ubuntu-latest
@@ -22,18 +23,16 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Read PM prompt
-        id: prompt
-        run: |
-          SYSTEM_PROMPT=$(cat .github/prompts/pm.md)
-          echo "system_prompt<<PROMPT_EOF" >> "$GITHUB_OUTPUT"
-          echo "$SYSTEM_PROMPT" >> "$GITHUB_OUTPUT"
-          echo "PROMPT_EOF" >> "$GITHUB_OUTPUT"
+      - name: Prepare system prompt
+        run: cp .github/prompts/pm.md /tmp/system-prompt.txt
 
       - name: Run PM Agent — Release
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          track_progress: true
+          additional_permissions: |
+            actions: read
           prompt: |
             You are the PM Agent in RELEASE mode.
 
@@ -46,7 +45,9 @@ jobs:
             3. Post completion summary on parent issue
             4. Check for release-please PR
             5. Add needs:human label — human will merge the release PR
-          claude_args: >-
-            --system-prompt "${{ steps.prompt.outputs.system_prompt }}"
+          claude_args: |
+            --append-system-prompt-file /tmp/system-prompt.txt
+            --verbose
+            --model claude-sonnet-4-6
             --allowedTools "Bash(gh issue:*),Bash(gh pr:*),Bash(gh label:*),Read"
             --max-turns 15

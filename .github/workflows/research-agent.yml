@@ -7,6 +7,7 @@ on:
 jobs:
   research:
     name: Research codebase
+    timeout-minutes: 20
     if: >-
       github.event.label.name == 'agent/research' &&
       !contains(github.event.issue.labels.*.name, 'lock:research')
@@ -22,18 +23,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Read Research prompt
-        id: prompt
-        run: |
-          SYSTEM_PROMPT=$(cat .github/prompts/research.md)
-          echo "system_prompt<<PROMPT_EOF" >> "$GITHUB_OUTPUT"
-          echo "$SYSTEM_PROMPT" >> "$GITHUB_OUTPUT"
-          echo "PROMPT_EOF" >> "$GITHUB_OUTPUT"
+      - name: Prepare system prompt
+        run: cp .github/prompts/research.md /tmp/system-prompt.txt
 
       - name: Run Research Agent
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          track_progress: true
+          additional_permissions: |
+            actions: read
           prompt: |
             You are the Research Agent.
 
@@ -52,7 +51,9 @@ jobs:
             6. Create a planner sub-issue with agent/plan label
             7. Update flow labels on parent issue
             8. Close this research sub-issue
-          claude_args: >-
-            --system-prompt "${{ steps.prompt.outputs.system_prompt }}"
+          claude_args: |
+            --append-system-prompt-file /tmp/system-prompt.txt
+            --verbose
+            --model claude-sonnet-4-6
             --allowedTools "Read,Bash(find:*),Bash(ls:*),Bash(grep:*),Bash(cat:*),Bash(gh issue:*),Bash(gh label:*)"
             --max-turns 30

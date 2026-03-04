@@ -7,6 +7,7 @@ on:
 jobs:
   review:
     name: Review PR
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -20,18 +21,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Read Review prompt
-        id: prompt
-        run: |
-          SYSTEM_PROMPT=$(cat .github/prompts/review.md)
-          echo "system_prompt<<PROMPT_EOF" >> "$GITHUB_OUTPUT"
-          echo "$SYSTEM_PROMPT" >> "$GITHUB_OUTPUT"
-          echo "PROMPT_EOF" >> "$GITHUB_OUTPUT"
+      - name: Prepare system prompt
+        run: cp .github/prompts/review.md /tmp/system-prompt.txt
 
       - name: Run Review Agent
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          track_progress: true
+          additional_permissions: |
+            actions: read
           prompt: |
             You are the Review Agent reviewing a pull request.
 
@@ -50,7 +49,9 @@ jobs:
             3. Review the full diff thoroughly
             4. Either request changes or approve
             5. If approved, merge the PR and close the linked sub-issue
-          claude_args: >-
-            --system-prompt "${{ steps.prompt.outputs.system_prompt }}"
+          claude_args: |
+            --append-system-prompt-file /tmp/system-prompt.txt
+            --verbose
+            --model claude-sonnet-4-6
             --allowedTools "Read,Bash(gh pr:*),Bash(gh issue:*),Bash(gh label:*),Bash(git diff:*),Bash(git log:*),Bash(cat:*),Bash(grep:*)"
             --max-turns 20

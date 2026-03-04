@@ -7,6 +7,7 @@ on:
 jobs:
   pm-plan-review:
     name: Review implementation plan
+    timeout-minutes: 15
     if: >-
       github.event.label.name == 'flow:pm-review'
     runs-on: ubuntu-latest
@@ -22,18 +23,16 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Read PM prompt
-        id: prompt
-        run: |
-          SYSTEM_PROMPT=$(cat .github/prompts/pm.md)
-          echo "system_prompt<<PROMPT_EOF" >> "$GITHUB_OUTPUT"
-          echo "$SYSTEM_PROMPT" >> "$GITHUB_OUTPUT"
-          echo "PROMPT_EOF" >> "$GITHUB_OUTPUT"
+      - name: Prepare system prompt
+        run: cp .github/prompts/pm.md /tmp/system-prompt.txt
 
       - name: Run PM Agent — Plan Review
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          track_progress: true
+          additional_permissions: |
+            actions: read
           prompt: |
             You are the PM Agent in PLAN REVIEW mode.
 
@@ -51,7 +50,9 @@ jobs:
             IMPORTANT: When creating phase sub-issues, include SUB_ISSUE_META
             with proper depends_on values from the dependency graph.
             Do NOT add agent/dev labels — the scheduler handles that.
-          claude_args: >-
-            --system-prompt "${{ steps.prompt.outputs.system_prompt }}"
+          claude_args: |
+            --append-system-prompt-file /tmp/system-prompt.txt
+            --verbose
+            --model claude-sonnet-4-6
             --allowedTools "Bash(gh issue:*),Bash(gh label:*),Read"
             --max-turns 25

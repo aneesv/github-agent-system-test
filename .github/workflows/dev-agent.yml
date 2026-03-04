@@ -7,6 +7,7 @@ on:
 jobs:
   implement:
     name: Implement phase
+    timeout-minutes: 30
     if: >-
       github.event.label.name == 'agent/dev'
     runs-on: ubuntu-latest
@@ -22,18 +23,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Read Dev prompt
-        id: prompt
-        run: |
-          SYSTEM_PROMPT=$(cat .github/prompts/dev.md)
-          echo "system_prompt<<PROMPT_EOF" >> "$GITHUB_OUTPUT"
-          echo "$SYSTEM_PROMPT" >> "$GITHUB_OUTPUT"
-          echo "PROMPT_EOF" >> "$GITHUB_OUTPUT"
+      - name: Prepare system prompt
+        run: cp .github/prompts/dev.md /tmp/system-prompt.txt
 
       - name: Run Dev Agent
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          track_progress: true
+          additional_permissions: |
+            actions: read
           prompt: |
             You are the Dev Agent implementing a phase.
 
@@ -48,7 +47,9 @@ jobs:
             3. Create a branch, implement the phase
             4. Commit with conventional commits
             5. Create a PR linked to this sub-issue
-          claude_args: >-
-            --system-prompt "${{ steps.prompt.outputs.system_prompt }}"
+          claude_args: |
+            --append-system-prompt-file /tmp/system-prompt.txt
+            --verbose
+            --model claude-sonnet-4-6
             --allowedTools "Read,Write,Edit,Bash(git:*),Bash(gh pr:*),Bash(gh issue:*),Bash(gh label:*),Bash(npm:*),Bash(npx:*),Bash(find:*),Bash(ls:*),Bash(grep:*),Bash(cat:*),Bash(mkdir:*)"
             --max-turns 50

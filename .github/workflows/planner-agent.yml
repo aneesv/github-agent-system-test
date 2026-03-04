@@ -9,6 +9,7 @@ on:
 jobs:
   plan-create:
     name: Create implementation plan
+    timeout-minutes: 15
     if: >-
       github.event_name == 'issues' &&
       github.event.label.name == 'agent/plan'
@@ -24,18 +25,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Read Planner prompt
-        id: prompt
-        run: |
-          SYSTEM_PROMPT=$(cat .github/prompts/planner.md)
-          echo "system_prompt<<PROMPT_EOF" >> "$GITHUB_OUTPUT"
-          echo "$SYSTEM_PROMPT" >> "$GITHUB_OUTPUT"
-          echo "PROMPT_EOF" >> "$GITHUB_OUTPUT"
+      - name: Prepare system prompt
+        run: cp .github/prompts/planner.md /tmp/system-prompt.txt
 
       - name: Run Planner Agent
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          track_progress: true
+          additional_permissions: |
+            actions: read
           prompt: |
             You are the Planner Agent creating an initial implementation plan.
 
@@ -51,13 +50,16 @@ jobs:
             4. Post PLAN_OUTPUT comment on this sub-issue
             5. Summarize on parent issue
             6. Add flow:pm-review to parent (remove flow:planning)
-          claude_args: >-
-            --system-prompt "${{ steps.prompt.outputs.system_prompt }}"
+          claude_args: |
+            --append-system-prompt-file /tmp/system-prompt.txt
+            --verbose
+            --model claude-sonnet-4-6
             --allowedTools "Read,Bash(grep:*),Bash(cat:*),Bash(gh issue:*),Bash(gh label:*)"
             --max-turns 20
 
   plan-revise:
     name: Revise plan based on PM feedback
+    timeout-minutes: 15
     if: >-
       github.event_name == 'issue_comment' &&
       contains(github.event.issue.labels.*.name, 'agent/plan') &&
@@ -74,18 +76,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Read Planner prompt
-        id: prompt
-        run: |
-          SYSTEM_PROMPT=$(cat .github/prompts/planner.md)
-          echo "system_prompt<<PROMPT_EOF" >> "$GITHUB_OUTPUT"
-          echo "$SYSTEM_PROMPT" >> "$GITHUB_OUTPUT"
-          echo "PROMPT_EOF" >> "$GITHUB_OUTPUT"
+      - name: Prepare system prompt
+        run: cp .github/prompts/planner.md /tmp/system-prompt.txt
 
       - name: Run Planner Agent — Revision
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          track_progress: true
+          additional_permissions: |
+            actions: read
           prompt: |
             You are the Planner Agent revising a plan based on PM feedback.
 
@@ -96,7 +96,9 @@ jobs:
             Read the existing plan on this issue's comments, apply the PM's feedback,
             and post an updated PLAN_OUTPUT comment. Follow the revision instructions
             in your system prompt.
-          claude_args: >-
-            --system-prompt "${{ steps.prompt.outputs.system_prompt }}"
+          claude_args: |
+            --append-system-prompt-file /tmp/system-prompt.txt
+            --verbose
+            --model claude-sonnet-4-6
             --allowedTools "Read,Bash(grep:*),Bash(cat:*),Bash(gh issue:*),Bash(gh label:*)"
             --max-turns 15
