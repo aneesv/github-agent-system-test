@@ -12,7 +12,7 @@ jobs:
       github.event.label.name == 'flow:pm-review'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       pull-requests: read
       issues: write
       id-token: write

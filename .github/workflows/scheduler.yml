@@ -75,6 +75,7 @@ jobs:
             gh issue view "$PARENT_NUM" --json labels \
               -q '[.labels[].name | select(startswith("flow:phase-"))] | .[]' | \
               xargs -I{} gh issue edit "$PARENT_NUM" --remove-label "{}" 2>/dev/null || true
+            gh issue edit "$PARENT_NUM" --remove-label "flow:implementing" 2>/dev/null || true
             gh issue edit "$PARENT_NUM" --add-label "flow:ready-release"
             gh issue comment "$PARENT_NUM" --body "All phase sub-issues are closed. Transitioning to release flow."
             exit 0
@@ -120,6 +121,7 @@ jobs:
 
             echo "Activating sub-issue #$ISSUE_NUM"
             gh issue edit "$ISSUE_NUM" --add-label "agent/dev"
+            gh issue edit "$PARENT_NUM" --add-label "flow:implementing" 2>/dev/null || true
             gh workflow run dev-agent.yml --ref main -f issue_number="$ISSUE_NUM"
             ACTIVATED_LIST="$ACTIVATED_LIST $ISSUE_NUM"
 

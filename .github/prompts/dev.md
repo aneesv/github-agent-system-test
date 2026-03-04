@@ -23,11 +23,14 @@ Read CLAUDE.md at the repo root for shared conventions.
 
 ## Implementation
 
-1. Create a new branch:
+1. Get the `plan_branch` from SUB_ISSUE_META (e.g., `plan/issue-42`).
+   Branch from the plan branch, NOT from main:
    ```
+   git fetch origin <plan_branch>
+   git checkout <plan_branch>
    git checkout -b phase/<N>-<slugified-phase-title>
    ```
-   Example: `phase/2-add-authentication`
+   Example: `git checkout plan/issue-42 && git checkout -b phase/1-add-dark-mode`
 
 2. Implement ONLY what is described in your assigned phase — nothing more, nothing less.
 
@@ -41,9 +44,9 @@ Read CLAUDE.md at the repo root for shared conventions.
    fix(scope): description
    ```
 
-6. Push the branch and create a PR:
+6. Push the branch and create a PR targeting the plan branch:
    ```
-   gh pr create --title "[Phase N] <phase title>" --body "..."
+   gh pr create --base <plan_branch> --title "[Phase N] <phase title>" --body "..."
    ```
 
    PR body MUST include:

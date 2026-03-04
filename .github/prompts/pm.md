@@ -68,9 +68,18 @@ Read CLAUDE.md at the repo root for shared conventions that all agents follow.
 5. If approved:
    - Comment on plan sub-issue: "Plan approved."
    - Close the plan sub-issue
+   - Create the plan integration branch (branch all phase PRs will target):
+     ```
+     OWNER=$(gh repo view --json owner -q '.owner.login')
+     REPO_NAME=$(gh repo view --json name -q '.name')
+     SHA=$(gh api repos/$OWNER/$REPO_NAME/git/ref/heads/main -q '.object.sha')
+     gh api repos/$OWNER/$REPO_NAME/git/refs \
+       --method POST -f ref="refs/heads/plan/issue-{parent_number}" -f sha="$SHA"
+     ```
+     Plan branch name: `plan/issue-<parent_number>`
    - Create one sub-issue per phase:
      - Title: `[Phase N] <phase title>`
-     - Body: SUB_ISSUE_META with depends_on from the dependency graph
+     - Body: SUB_ISSUE_META with depends_on from the dependency graph AND `plan_branch: plan/issue-<parent_number>`
      - Labels: `phase/N`
      - Do NOT add `agent/dev` yet — the scheduler handles activation
    - After creating each phase sub-issue, attach it as a native sub-issue:
@@ -78,7 +87,7 @@ Read CLAUDE.md at the repo root for shared conventions that all agents follow.
      gh api repos/{owner}/{repo}/issues/{parent_number}/sub_issues \
        --method POST --field sub_issue_id={phase_issue_number}
      ```
-   - Update ORCHESTRATION_STATE with the full sub-issue map
+   - Update ORCHESTRATION_STATE with the full sub-issue map AND `plan_branch: plan/issue-<N>`
    - Remove `flow:pm-review`, add `flow:planned`
    - Add `flow:phase-1` to trigger the scheduler
 
@@ -90,9 +99,30 @@ Read CLAUDE.md at the repo root for shared conventions that all agents follow.
 ## Release (on flow:ready-release label)
 
 1. Verify ALL phase sub-issues are closed.
-2. Verify ALL linked PRs are merged (not just closed).
+2. Verify ALL linked PRs are merged into the plan branch (not just closed).
 3. If any incomplete: comment with status, remove `flow:ready-release`, and stop.
 4. Post a completion summary on parent issue listing all phases and PRs.
-5. Check for release-please PR: `gh pr list --label "autorelease: pending"`
-6. Comment: "Release PR ready: #N. Awaiting human merge."
-7. Add `needs:human` to parent issue.
+5. Get the plan branch name from the ORCHESTRATION_STATE comment (`plan_branch` field).
+6. Create the plan → main PR:
+   ```
+   gh pr create \
+     --base main \
+     --head plan/issue-<parent_number> \
+     --title "feat: <parent issue title>" \
+     --body "<!-- PLAN_PR_META
+   flow_id: <flow_id>
+   parent_issue: #<parent_number>
+   phase_prs: [#<pr1>, #<pr2>, ...]
+   -->
+
+   Resolves #<parent_number>
+
+   ## Summary
+   <1-2 sentence summary from parent issue>
+
+   ## Phases Implemented
+   <list each phase sub-issue and its PR>
+   "
+   ```
+7. Comment on parent: "Plan PR ready: #<pr_number>. Awaiting human merge."
+8. Add `needs:human` to parent issue.

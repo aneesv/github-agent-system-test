@@ -45,6 +45,7 @@ sub_issues: [#N, #N, ...]
 flow_id: <uuid>
 parent_issue: #<number>
 phase: <N>
+plan_branch: plan/issue-<number>
 depends_on: [#<number>, ...]
 execution: serial|parallel
 scope: <description>
@@ -126,10 +127,14 @@ feat(scope)!: description   — breaking change (major bump)
 
 ## Git Workflow
 
-- Branch naming: `phase/<N>-<slug>` (e.g., `phase/2-add-auth`)
-- NEVER commit directly to main
+- Branch naming:
+  - `plan/issue-<N>` — feature integration branch (e.g., `plan/issue-42`), created by PM on plan approval
+  - `phase/<N>-<slug>` — per-phase implementation branch (e.g., `phase/1-add-auth`), branched from `plan/issue-<N>`
+- Phase PRs target `plan/issue-<N>` (NOT `main`) — review agent merges them into the plan branch
+- Final plan PR: `plan/issue-<N>` → `main`, created by PM release, merged by human
+- NEVER commit directly to main or to the plan branch
 - NEVER force push
-- ALL PRs must link to a sub-issue (`Closes #N`)
+- ALL phase PRs must link to a sub-issue (`Closes #N`)
 - One PR per sub-issue — no combining
 
 ## When to Escalate
