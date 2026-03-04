@@ -7,6 +7,7 @@ on:
 jobs:
   schedule:
     name: Evaluate and activate runnable sub-issues
+    timeout-minutes: 5
     if: >-
       (github.event.action == 'labeled' && startsWith(github.event.label.name, 'flow:phase-')) ||
       (github.event.action == 'closed' && contains(github.event.issue.labels.*.name, 'agent/dev'))
@@ -14,128 +15,95 @@ jobs:
     permissions:
       issues: write
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      - name: Find parent issue
-        id: parent
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          ISSUE_BODY=$(gh issue view ${{ github.event.issue.number }} --json body -q '.body')
-
-          if echo "$ISSUE_BODY" | grep -q "parent_issue:"; then
-            # This is a sub-issue that was closed — find parent
-            PARENT=$(echo "$ISSUE_BODY" | grep -oP 'parent_issue: #\K[0-9]+')
-            echo "number=$PARENT" >> "$GITHUB_OUTPUT"
-            echo "is_parent=false" >> "$GITHUB_OUTPUT"
-          else
-            # This is the parent issue getting a flow:phase-* label
-            echo "number=${{ github.event.issue.number }}" >> "$GITHUB_OUTPUT"
-            echo "is_parent=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Get orchestration state and sub-issues
-        id: state
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PARENT_NUM=${{ steps.parent.outputs.number }}
-
-          # Get all comments on parent issue to find ORCHESTRATION_STATE
-          COMMENTS=$(gh issue view "$PARENT_NUM" --comments --json comments -q '.comments[].body')
-
-          # Find sub-issues referenced in orchestration state
-          # Get all open issues that reference this parent
-          SUB_ISSUES=$(gh issue list --label "phase/1,phase/2,phase/3" --state all --json number,state,labels,body -q '
-            [.[] | select(.body | contains("parent_issue: #'"$PARENT_NUM"'"))]
-          ')
-
-          echo "sub_issues<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$SUB_ISSUES" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
-
-          # Check if parent has risk:high label
-          HAS_RISK_HIGH=$(gh issue view "$PARENT_NUM" --json labels -q '[.labels[].name] | any(. == "risk:high")')
-          echo "risk_high=$HAS_RISK_HIGH" >> "$GITHUB_OUTPUT"
-
       - name: Evaluate dependency graph and activate runnable sub-issues
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SUB_ISSUES: ${{ steps.state.outputs.sub_issues }}
-          RISK_HIGH: ${{ steps.state.outputs.risk_high }}
-          PARENT_NUM: ${{ steps.parent.outputs.number }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
-          echo "Evaluating dependency graph for parent issue #$PARENT_NUM"
+          # Determine parent issue number
+          ISSUE_BODY=$(gh issue view "$ISSUE_NUMBER" --json body -q '.body')
 
-          # Parse sub-issues JSON
+          if echo "$ISSUE_BODY" | grep -q "parent_issue:"; then
+            # Closed sub-issue — find parent
+            PARENT_NUM=$(echo "$ISSUE_BODY" | grep -oP 'parent_issue: #\K[0-9]+')
+            echo "Sub-issue closed, parent: #$PARENT_NUM"
+          else
+            # Parent got a flow:phase-* label
+            PARENT_NUM="$ISSUE_NUMBER"
+            echo "Phase label added to parent: #$PARENT_NUM"
+          fi
+
+          # Check if parent has risk:high label
+          HAS_RISK_HIGH=$(gh issue view "$PARENT_NUM" --json labels -q '[.labels[].name] | any(. == "risk:high")')
+
+          # Get all phase sub-issues referencing this parent (open and closed)
+          echo "Fetching sub-issues for parent #$PARENT_NUM..."
+          SUB_ISSUES=$(gh issue list --state all --limit 100 --json number,state,labels,body \
+            -q "[.[] | select(.body | contains(\"parent_issue: #${PARENT_NUM}\")) | select(.body | contains(\"SUB_ISSUE_META\"))]")
+
           TOTAL=$(echo "$SUB_ISSUES" | jq 'length')
-          CLOSED=$(echo "$SUB_ISSUES" | jq '[.[] | select(.state == "CLOSED")] | length')
           OPEN=$(echo "$SUB_ISSUES" | jq '[.[] | select(.state == "OPEN")] | length')
+          CLOSED=$(echo "$SUB_ISSUES" | jq '[.[] | select(.state == "CLOSED")] | length')
 
-          echo "Total sub-issues: $TOTAL, Closed: $CLOSED, Open: $OPEN"
+          echo "Sub-issues found: total=$TOTAL open=$OPEN closed=$CLOSED"
 
-          # If all sub-issues are closed, transition to ready-release
-          if [ "$OPEN" -eq 0 ] && [ "$TOTAL" -gt 0 ]; then
+          # If all phase sub-issues are closed → ready for release
+          if [ "$TOTAL" -gt 0 ] && [ "$OPEN" -eq 0 ]; then
             echo "All sub-issues closed. Transitioning to flow:ready-release"
-            # Remove flow:phase-* labels
-            for label in $(gh issue view "$PARENT_NUM" --json labels -q '[.labels[].name | select(startswith("flow:phase-"))] | .[]'); do
-              gh issue edit "$PARENT_NUM" --remove-label "$label" || true
-            done
+            # Remove all flow:phase-* labels
+            gh issue view "$PARENT_NUM" --json labels -q '[.labels[].name | select(startswith("flow:phase-"))] | .[]' | \
+              xargs -I{} gh issue edit "$PARENT_NUM" --remove-label "{}" 2>/dev/null || true
             gh issue edit "$PARENT_NUM" --add-label "flow:ready-release"
             gh issue comment "$PARENT_NUM" --body "All phase sub-issues are closed. Transitioning to release flow."
             exit 0
           fi
 
-          # Find runnable sub-issues (open, no agent/dev label, all deps closed)
-          ACTIVATED=0
-          echo "$SUB_ISSUES" | jq -c '.[] | select(.state == "OPEN")' | while read -r issue; do
+          # Collect activated issue numbers to enforce risk:high serial mode
+          ACTIVATED_LIST=""
+
+          # Activate each runnable sub-issue
+          while IFS= read -r issue; do
+            [ -z "$issue" ] && continue
             ISSUE_NUM=$(echo "$issue" | jq -r '.number')
             ISSUE_BODY=$(echo "$issue" | jq -r '.body')
-            HAS_DEV_LABEL=$(echo "$issue" | jq '[.labels[].name] | any(. == "agent/dev")')
+            ISSUE_STATE=$(echo "$issue" | jq -r '.state')
+            HAS_DEV=$(echo "$issue" | jq -r '[.labels[].name] | any(. == "agent/dev")')
 
-            # Skip if already has agent/dev label
-            if [ "$HAS_DEV_LABEL" = "true" ]; then
-              echo "Sub-issue #$ISSUE_NUM already has agent/dev label, skipping"
-              continue
-            fi
+            [ "$ISSUE_STATE" != "OPEN" ] && continue
+            [ "$HAS_DEV" = "true" ] && { echo "#$ISSUE_NUM already has agent/dev, skipping"; continue; }
 
-            # Parse depends_on from SUB_ISSUE_META
+            # Check dependencies
             DEPENDS_ON=$(echo "$ISSUE_BODY" | grep -oP 'depends_on: \[\K[^\]]*' || echo "")
+            RUNNABLE=true
 
-            if [ -z "$DEPENDS_ON" ]; then
-              # No dependencies — runnable
-              echo "Sub-issue #$ISSUE_NUM has no dependencies — activating"
-            else
-              # Check if all dependencies are closed
-              ALL_DEPS_MET=true
-              for dep in $(echo "$DEPENDS_ON" | tr ',' ' ' | tr -d '#' | tr -d ' '); do
-                DEP_STATE=$(echo "$SUB_ISSUES" | jq -r --arg num "$dep" '.[] | select(.number == ($num | tonumber)) | .state')
+            if [ -n "$DEPENDS_ON" ]; then
+              for dep_raw in $(echo "$DEPENDS_ON" | tr ',' '\n' | tr -d '# '); do
+                [ -z "$dep_raw" ] && continue
+                DEP_STATE=$(echo "$SUB_ISSUES" | jq -r --argjson num "$dep_raw" '.[] | select(.number == $num) | .state')
                 if [ "$DEP_STATE" != "CLOSED" ]; then
-                  echo "Sub-issue #$ISSUE_NUM blocked by #$dep (state: $DEP_STATE)"
-                  ALL_DEPS_MET=false
+                  echo "#$ISSUE_NUM blocked by #$dep_raw (state: ${DEP_STATE:-not found})"
+                  RUNNABLE=false
                   break
                 fi
               done
-
-              if [ "$ALL_DEPS_MET" = "false" ]; then
-                continue
-              fi
-              echo "Sub-issue #$ISSUE_NUM — all dependencies met, activating"
             fi
 
-            # If risk:high, only activate one at a time
-            if [ "$RISK_HIGH" = "true" ] && [ "$ACTIVATED" -gt 0 ]; then
-              echo "risk:high — skipping #$ISSUE_NUM (serial mode)"
+            [ "$RUNNABLE" = "false" ] && continue
+
+            # Enforce serial mode for risk:high
+            if [ "$HAS_RISK_HIGH" = "true" ] && [ -n "$ACTIVATED_LIST" ]; then
+              echo "risk:high serial mode — skipping #$ISSUE_NUM"
               continue
             fi
 
-            # Activate: add agent/dev label
+            echo "Activating sub-issue #$ISSUE_NUM"
             gh issue edit "$ISSUE_NUM" --add-label "agent/dev"
-            echo "Activated sub-issue #$ISSUE_NUM"
-            ACTIVATED=$((ACTIVATED + 1))
-          done
+            ACTIVATED_LIST="$ACTIVATED_LIST $ISSUE_NUM"
 
-          echo "Activation complete. $ACTIVATED sub-issues activated."
+          done < <(echo "$SUB_ISSUES" | jq -c '.[]')
+
+          if [ -z "$ACTIVATED_LIST" ]; then
+            echo "No sub-issues activated (all blocked or already active)"
+          else
+            echo "Activated:$ACTIVATED_LIST"
+          fi

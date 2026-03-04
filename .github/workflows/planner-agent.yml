@@ -63,8 +63,11 @@ jobs:
     timeout-minutes: 15
     if: >-
       github.event_name == 'issue_comment' &&
+      github.event.sender.type == 'User' &&
       contains(github.event.issue.labels.*.name, 'agent/plan') &&
-      !contains(github.event.comment.body, '<!-- PLAN_OUTPUT')
+      !contains(github.event.comment.body, '<!-- PLAN_OUTPUT') &&
+      !contains(github.event.comment.body, 'Claude Code is working') &&
+      !contains(github.event.comment.body, 'Claude finished')
     runs-on: ubuntu-latest
     permissions:
       contents: read
