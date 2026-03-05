@@ -89,6 +89,7 @@ jobs:
               xargs -I{} gh issue edit "$PARENT_NUM" --remove-label "{}" 2>/dev/null || true
             gh issue edit "$PARENT_NUM" --remove-label "flow:implementing" 2>/dev/null || true
             gh issue edit "$PARENT_NUM" --add-label "flow:qa"
+            gh workflow run qa-agent.yml --ref main -f issue_number="$PARENT_NUM"
             gh issue comment "$PARENT_NUM" --body "All phase sub-issues are closed. Starting QA validation on the plan branch."
             exit 0
           fi
