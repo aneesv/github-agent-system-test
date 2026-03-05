@@ -16,6 +16,8 @@ jobs:
       !contains(github.event.issue.labels.*.name, 'flow:pm-review') &&
       !contains(github.event.issue.labels.*.name, 'flow:planned') &&
       !contains(github.event.issue.labels.*.name, 'flow:implementing') &&
+      !contains(github.event.issue.labels.*.name, 'flow:qa') &&
+      !contains(github.event.issue.labels.*.name, 'flow:qa-failed') &&
       !contains(github.event.issue.labels.*.name, 'flow:ready-release') &&
       !contains(github.event.issue.labels.*.name, 'flow:blocked') &&
       !contains(github.event.issue.labels.*.name, 'flow:failed') &&

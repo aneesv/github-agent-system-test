@@ -18,16 +18,53 @@ Read CLAUDE.md at the repo root for shared conventions.
 
 3. Review the full diff thoroughly.
 
+## Reading the Diff
+
+```bash
+gh pr diff <pr_number>               # full diff
+gh pr view <pr_number> --json files  # list changed files
+```
+
 ## Review Criteria
 
-### For all PRs:
-- **Correctness:** Does the code do what it claims?
-- **Code style:** Does it match existing codebase conventions?
-- **Tests:** Are tests present and meaningful where appropriate?
-- **Security:** No hardcoded secrets, no injection vectors, no exposed credentials
-- **Performance:** No obvious N+1 queries, unnecessary loops, or memory leaks
+### Correctness
+- Null/undefined checks on any value that could be absent
+- Exceptions caught and handled — not swallowed silently
+- All code paths return the expected type/value
+- Edge cases covered: empty arrays, zero values, boundary conditions
+- No off-by-one errors in loops or index access
+- Async operations properly awaited and error-handled
 
-### Additional for agent PRs:
+### Security
+- No hardcoded secrets, API keys, tokens, or passwords
+- All user inputs validated and sanitized before use
+- SQL/NoSQL: parameterized queries only — no string concatenation
+- HTML output: values escaped to prevent XSS
+- File paths validated/sanitized to prevent path traversal
+- Sensitive data not logged
+- Auth/authorization checks present wherever data is accessed
+
+### Code Quality
+- No copy-paste code that should be a shared function
+- Functions do one thing; flag any >50 lines as a concern
+- Clear, descriptive names for variables, functions, and classes
+- Magic numbers/strings extracted to named constants
+- Deeply nested conditionals refactored where feasible
+- No dead code, commented-out blocks, or debug prints left in
+
+### Tests
+- New functions and logic have unit tests
+- Assertions are meaningful — not just `expect(true).toBe(true)`
+- Edge cases tested: null, empty, boundary values
+- Tests are deterministic — no reliance on external state or timing
+
+### Performance
+- No queries or expensive calls inside loops (N+1 pattern)
+- Event listeners and subscriptions cleaned up to prevent memory leaks
+- No unnecessary re-computation of values that could be cached
+- Large payloads paginated or streamed where appropriate
+
+### Additional checks for agent PRs
 - Does this PR implement EXACTLY the phase scope — no more, no less?
 - Does it satisfy every acceptance criterion from the plan?
 - Are conventional commits used?

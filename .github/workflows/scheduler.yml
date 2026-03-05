@@ -75,15 +75,21 @@ jobs:
             echo "Fallback found: total=$TOTAL open=$OPEN closed=$CLOSED"
           fi
 
-          # If all phase sub-issues are closed → ready for release
+          # If all phase sub-issues are closed → start QA validation
           if [ "$TOTAL" -gt 0 ] && [ "$OPEN" -eq 0 ]; then
-            echo "All sub-issues closed. Transitioning to flow:ready-release"
+            # Guard: don't re-add flow:qa if already in QA state
+            HAS_QA=$(gh issue view "$PARENT_NUM" --json labels -q '[.labels[].name] | any(. == "flow:qa" or . == "flow:qa-failed")')
+            if [ "$HAS_QA" = "true" ]; then
+              echo "Already in QA state, skipping"
+              exit 0
+            fi
+            echo "All sub-issues closed. Transitioning to flow:qa"
             gh issue view "$PARENT_NUM" --json labels \
               -q '[.labels[].name | select(startswith("flow:phase-"))] | .[]' | \
               xargs -I{} gh issue edit "$PARENT_NUM" --remove-label "{}" 2>/dev/null || true
             gh issue edit "$PARENT_NUM" --remove-label "flow:implementing" 2>/dev/null || true
-            gh issue edit "$PARENT_NUM" --add-label "flow:ready-release"
-            gh issue comment "$PARENT_NUM" --body "All phase sub-issues are closed. Transitioning to release flow."
+            gh issue edit "$PARENT_NUM" --add-label "flow:qa"
+            gh issue comment "$PARENT_NUM" --body "All phase sub-issues are closed. Starting QA validation on the plan branch."
             exit 0
           fi
 

@@ -57,9 +57,18 @@ Review Agent
   │
   ▼ (scheduler fires on each sub-issue close)
   → if more phases ready: activates next runnable phases
-  → if all phases done: adds flow:ready-release
+  → if all phases done: adds flow:qa
   │
   ▼
+QA Agent
+  → checks out plan/issue-N branch
+  → runs test suite and build check
+  → verifies all acceptance criteria from every phase
+  → posts QA_REPORT on parent issue
+  → PASS: adds flow:ready-release
+  → FAIL: adds flow:qa-failed + needs:human
+  │
+  ▼ (on flow:ready-release)
 PM Agent (release)
   → verifies all sub-issues closed, all PRs merged into plan branch
   → creates plan/issue-N → main PR
@@ -106,13 +115,15 @@ Phase PRs merge into the plan branch (not main). Main stays clean until an entir
 | Scheduler | `scheduler.yml` | Dependency-aware parallel phase activation (shell, not Claude) |
 | Dev | `dev-agent.yml` | Code implementation, one PR per phase |
 | Review | `review-agent.yml` | Code review with iterative feedback loop |
+| QA | `qa-agent.yml` | Integration validation on plan branch before release |
 
 ## Labels
 
 ### Flow State (on parent issue)
 ```
 flow:triage → flow:research → flow:planning → flow:pm-review
-  → flow:planned → flow:phase-N → flow:implementing → flow:ready-release → flow:released
+  → flow:planned → flow:phase-N → flow:implementing → flow:qa → flow:ready-release → flow:released
+                                                      (flow:qa-failed + needs:human on QA failure)
 ```
 
 ### Control Labels
@@ -160,6 +171,8 @@ gh label create "flow:planning"      --color "e4e669"
 gh label create "flow:pm-review"     --color "e4e669"
 gh label create "flow:planned"       --color "e4e669"
 gh label create "flow:implementing"  --color "fbca04"
+gh label create "flow:qa"           --color "fbca04"
+gh label create "flow:qa-failed"    --color "d93f0b"
 gh label create "flow:ready-release" --color "0e8a16"
 gh label create "flow:released"      --color "0e8a16"
 gh label create "flow:blocked"       --color "d93f0b"

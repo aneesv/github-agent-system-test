@@ -1,0 +1,62 @@
+name: QA Agent
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  qa:
+    name: QA validation on plan branch
+    timeout-minutes: 20
+    if: github.event.label.name == 'flow:qa'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+
+      - name: Prepare system prompt
+        run: cp .github/prompts/qa.md /tmp/system-prompt.txt
+
+      - name: Run QA Agent
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: "*"
+          track_progress: true
+          additional_permissions: |
+            actions: read
+          prompt: |
+            You are the QA Agent.
+
+            PARENT ISSUE: #${{ github.event.issue.number }}
+            TITLE: ${{ github.event.issue.title }}
+
+            All phase sub-issues are closed. The plan branch is ready to validate.
+
+            Follow your system prompt:
+            1. Find plan_branch from ORCHESTRATION_STATE comment on this issue
+            2. git fetch + checkout the plan branch
+            3. Collect all phase acceptance criteria from each [Phase N] sub-issue
+            4. Run the test suite and build check
+            5. Verify each acceptance criterion
+            6. Post QA_REPORT comment on this parent issue
+            7. If PASS: remove flow:qa, add flow:ready-release
+               If FAIL: remove flow:qa, add flow:qa-failed + needs:human
+          claude_args: |
+            --append-system-prompt-file /tmp/system-prompt.txt
+            --verbose
+            --model claude-sonnet-4-6
+            --allowedTools "Read,Bash(git:*),Bash(npm:*),Bash(npx:*),Bash(node:*),Bash(python3:*),Bash(pytest:*),Bash(pip3:*),Bash(find:*),Bash(ls:*),Bash(grep:*),Bash(cat:*),Bash(gh issue:*),Bash(gh label:*),Bash(gh api:*),Bash(gh repo:*)"
+            --max-turns 30

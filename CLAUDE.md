@@ -5,7 +5,7 @@ All agents MUST read and follow these guidelines.
 
 ## Architecture
 
-Seven specialized agents, each with a single responsibility:
+Eight specialized agents, each with a single responsibility:
 
 | Agent | Role | Workflow |
 |-------|------|----------|
@@ -15,6 +15,7 @@ Seven specialized agents, each with a single responsibility:
 | Scheduler | Dependency evaluation, phase activation | scheduler.yml (shell, not Claude) |
 | Dev | Code implementation, one phase at a time | dev-agent.yml |
 | Review | Code review, quality gates | review-agent.yml |
+| QA | Integration validation on plan branch before release | qa-agent.yml |
 | Human | Merges release PRs, handles `needs:human` | — |
 
 ## Communication Rules
@@ -93,6 +94,16 @@ flow_id: <uuid>
 parent_issue: #<number>
 phase_prs: [#<pr1>, #<pr2>, ...]
 -->
+```
+
+### QA_REPORT (comment on parent issue, posted by QA agent)
+```
+<!-- QA_REPORT
+flow_id: <uuid>
+status: pass|fail
+-->
+...report...
+<!-- /QA_REPORT -->
 ```
 
 ## Label Protocol
