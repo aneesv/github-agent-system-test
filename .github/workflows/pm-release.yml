@@ -53,4 +53,4 @@ jobs:
             --verbose
             --model claude-sonnet-4-6
             --allowedTools "Bash(gh issue:*),Bash(gh pr:*),Bash(gh label:*),Read"
-            --max-turns 15
+            --max-turns 25
