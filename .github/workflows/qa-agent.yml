@@ -50,7 +50,6 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           allowed_bots: "*"
-          track_progress: true
           issue_number: ${{ steps.resolve.outputs.issue_number }}
           additional_permissions: |
             actions: read
