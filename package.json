@@ -3,6 +3,6 @@
   "type": "module",
   "version": "0.1.0",
   "scripts": {
-    "test": "node --test hello.test.js"
+    "test": "node --test *.test.js"
   }
 }
