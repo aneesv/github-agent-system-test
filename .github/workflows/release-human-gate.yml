@@ -5,8 +5,55 @@ on:
     types: [closed]
 
 jobs:
-  enforce-human-merge:
-    name: Enforce human merge on release PRs
+  # Close parent issue when a plan→main PR is merged
+  plan-pr-merged:
+    name: Handle plan PR merge
+    if: >-
+      github.event.pull_request.merged == true &&
+      contains(github.event.pull_request.body, '<!-- PLAN_PR_META')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: write
+    steps:
+      - name: Close parent issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MERGER: ${{ github.event.pull_request.merged_by.login }}
+          MERGER_TYPE: ${{ github.event.pull_request.merged_by.type }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          echo "Plan PR #$PR_NUMBER merged by $MERGER (type: $MERGER_TYPE)"
+
+          if [ "$MERGER_TYPE" = "Bot" ]; then
+            echo "WARNING: Plan PRs should be merged by humans."
+            gh pr comment "$PR_NUMBER" --body "Plan PRs should be merged by humans. This merge by bot ($MERGER) should be investigated."
+          fi
+
+          # Extract parent issue number from PLAN_PR_META
+          PARENT_NUM=$(echo "$PR_BODY" | grep -oP 'parent_issue: #\K[0-9]+' || true)
+
+          if [ -z "$PARENT_NUM" ]; then
+            echo "Could not find parent_issue in PR body, skipping"
+            exit 0
+          fi
+
+          echo "Closing parent issue #$PARENT_NUM"
+
+          # Clean up all flow labels
+          for label in flow:planned flow:ready-release flow:implementing flow:qa needs:human; do
+            gh issue edit "$PARENT_NUM" --remove-label "$label" 2>/dev/null || true
+          done
+
+          gh issue edit "$PARENT_NUM" --add-label "flow:released"
+          gh issue comment "$PARENT_NUM" --body "Plan PR #$PR_NUMBER merged by @$MERGER. Feature released to main."
+          gh issue close "$PARENT_NUM"
+
+  # Validate release-please PRs are merged by humans
+  release-pr-merged:
+    name: Handle release-please PR merge
     if: >-
       github.event.pull_request.merged == true &&
       contains(github.event.pull_request.labels.*.name, 'autorelease: pending')
@@ -22,7 +69,6 @@ jobs:
           MERGER: ${{ github.event.pull_request.merged_by.login }}
           MERGER_TYPE: ${{ github.event.pull_request.merged_by.type }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           echo "Release PR #$PR_NUMBER merged by $MERGER (type: $MERGER_TYPE)"
 
@@ -33,29 +79,3 @@ jobs:
           fi
 
           echo "Human merge confirmed by $MERGER"
-
-      - name: Find and close parent issue
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_BODY: ${{ github.event.pull_request.body }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-        run: |
-          echo "Release PR merged. Looking for parent issues to close..."
-
-          # Search for open issues with flow:ready-release label
-          PARENT_ISSUES=$(gh issue list --label "flow:ready-release" --state open --json number -q '.[].number')
-
-          for ISSUE_NUM in $PARENT_ISSUES; do
-            echo "Closing parent issue #$ISSUE_NUM"
-
-            # Remove old flow labels, add flow:released
-            gh issue edit "$ISSUE_NUM" --remove-label "flow:ready-release" || true
-            gh issue edit "$ISSUE_NUM" --remove-label "needs:human" || true
-            gh issue edit "$ISSUE_NUM" --add-label "flow:released"
-
-            # Post completion comment
-            gh issue comment "$ISSUE_NUM" --body "Release PR #${{ github.event.pull_request.number }} has been merged by @${{ github.event.pull_request.merged_by.login }}. This issue is now complete."
-
-            # Close the issue
-            gh issue close "$ISSUE_NUM"
-          done

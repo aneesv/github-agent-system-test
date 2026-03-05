@@ -134,5 +134,10 @@ Read CLAUDE.md at the repo root for shared conventions that all agents follow.
    <list each phase sub-issue and its PR>
    "
    ```
-8. Comment on parent: "Plan PR ready: #<pr_number>. Awaiting human merge."
-9. Add `needs:human` to parent issue.
+8. Clean up stale flow labels on parent issue:
+   ```
+   gh issue edit <parent_number> --remove-label "flow:ready-release" 2>/dev/null || true
+   gh issue edit <parent_number> --remove-label "flow:planned" 2>/dev/null || true
+   ```
+9. Comment on parent: "Plan PR ready: #<pr_number>. Awaiting human merge."
+10. Add `needs:human` to parent issue.
