@@ -38,7 +38,7 @@ jobs:
 
           if echo "$ISSUE_BODY" | grep -q "parent_issue:"; then
             # Closed sub-issue — find parent via native API
-            PARENT_NUM=$(gh api "repos/$REPO/issues/$ISSUE_NUMBER/parent" -q '.number // empty' 2>/dev/null)
+            PARENT_NUM=$(gh api "repos/$REPO/issues/$ISSUE_NUMBER/parent" -q '.number // empty' 2>/dev/null || true)
             # Fallback to text parsing if native parent API returns empty
             if [ -z "$PARENT_NUM" ]; then
               PARENT_NUM=$(echo "$ISSUE_BODY" | grep -oP 'parent_issue: #\K[0-9]+')
